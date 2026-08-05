@@ -5,6 +5,10 @@ import { loadHistory, addAccepted, clearHistory } from './history.js';
 
 const app = document.getElementById('app');
 
+const FALLBACK_IMAGE = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 560"><rect width="400" height="560" fill="#1a1d24"/><text x="200" y="280" font-family="sans-serif" font-size="18" fill="#9ca3af" text-anchor="middle">Preview unavailable</text></svg>'
+);
+
 const state = {
   deck: shuffledDeck(TEMPLATES),
   index: 0,
@@ -98,7 +102,7 @@ function buildCard(tpl, isTop) {
   const card = document.createElement('div');
   card.className = isTop ? 'card card-top' : 'card';
   card.innerHTML = `
-    <img src="${tpl.previewImageUrl}" alt="${tpl.name} template preview" />
+    <img src="${tpl.previewImageUrl}" alt="${tpl.name} template preview" loading="lazy" onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}';" />
     <div class="info">
       <h2>${tpl.name}</h2>
       <p>${tpl.category} · ${tpl.description}</p>
@@ -231,10 +235,22 @@ function renderAcceptPanel(tpl) {
   const img = document.createElement('img');
   img.src = tpl.previewImageUrl;
   img.alt = `${tpl.name} preview`;
+  img.loading = 'lazy';
+  img.onerror = () => { img.onerror = null; img.src = FALLBACK_IMAGE; };
   img.style.width = '160px';
   img.style.borderRadius = '16px';
-  img.style.marginBottom = '20px';
+  img.style.marginBottom = '12px';
   panel.appendChild(img);
+
+  if (tpl.v0Url) {
+    const v0Link = document.createElement('a');
+    v0Link.href = tpl.v0Url;
+    v0Link.target = '_blank';
+    v0Link.rel = 'noopener noreferrer';
+    v0Link.textContent = 'View on v0.dev';
+    v0Link.style.cssText = 'color:#7dd3fc;font-size:13px;margin-bottom:20px;display:inline-block;';
+    panel.appendChild(v0Link);
+  }
 
   const linksTitle = document.createElement('h3');
   linksTitle.textContent = 'Your links';
