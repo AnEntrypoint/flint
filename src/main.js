@@ -86,6 +86,7 @@ function render() {
   } else if (currentTemplate()) {
     app.appendChild(renderDeckArea());
     app.appendChild(renderControls());
+    app.appendChild(renderKeyboardHint());
   } else {
     app.appendChild(renderEmptyState());
   }
@@ -283,6 +284,13 @@ function renderControls() {
   controls.appendChild(rejectBtn);
   controls.appendChild(acceptBtn);
   return controls;
+}
+
+function renderKeyboardHint() {
+  const el = document.createElement('div');
+  el.className = 'keyboard-hint';
+  el.innerHTML = '<kbd>&larr;</kbd> reject &nbsp; <kbd>&rarr;</kbd> accept';
+  return el;
 }
 
 function renderAcceptPanel(tpl) {
