@@ -1,4 +1,4 @@
-import { TEMPLATES } from './templates.js';
+import { fetchInitialTemplates, fetchMoreTemplates, dedupeTemplates } from './templates.js';
 import { shuffledDeck } from './deck.js';
 import { loadLinks, saveLinks, isValidUrl, addLink, removeLink } from './links.js';
 import { loadHistory, addAccepted, clearHistory } from './history.js';
@@ -9,18 +9,68 @@ const FALLBACK_IMAGE = 'data:image/svg+xml;utf8,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 560"><rect width="400" height="560" fill="#1a1d24"/><text x="200" y="280" font-family="sans-serif" font-size="18" fill="#9ca3af" text-anchor="middle">Preview unavailable</text></svg>'
 );
 
+const LOW_WATER_MARK = 4;
+const MAX_FETCH_ATTEMPTS = 13;
+
 const state = {
-  deck: shuffledDeck(TEMPLATES),
+  deck: [],
   index: 0,
   links: loadLinks(),
   history: loadHistory(),
   linksSheetOpen: false,
   acceptPanelTemplate: null,
   loading: true,
+  loadError: null,
+  fetchingMore: false,
 };
 
 function currentTemplate() {
   return state.deck[state.index] ?? null;
+}
+
+async function loadInitialDeck() {
+  state.loading = true;
+  state.loadError = null;
+  render();
+  try {
+    const templates = await fetchInitialTemplates();
+    if (templates.length === 0) {
+      state.loadError = 'Could not load any templates from v0.dev right now.';
+    } else {
+      state.deck = shuffledDeck(dedupeTemplates(templates));
+      state.index = 0;
+    }
+  } catch (err) {
+    console.error('Failed to load initial templates:', err);
+    state.loadError = 'Could not load templates from v0.dev right now.';
+  }
+  state.loading = false;
+  render();
+}
+
+async function maybeFetchMore() {
+  if (state.fetchingMore) return;
+  const remaining = state.deck.length - state.index;
+  if (remaining > LOW_WATER_MARK) return;
+
+  state.fetchingMore = true;
+  try {
+    const existingIds = state.deck.map((t) => t.id);
+    let attempts = 0;
+    let fresh = [];
+    while (fresh.length === 0 && attempts < MAX_FETCH_ATTEMPTS) {
+      fresh = await fetchMoreTemplates(existingIds);
+      attempts += 1;
+      if (fresh.length === 0) break;
+    }
+    if (fresh.length > 0) {
+      state.deck = state.deck.concat(shuffledDeck(fresh));
+      render();
+    }
+  } catch (err) {
+    console.error('Failed to fetch more templates:', err);
+  }
+  state.fetchingMore = false;
 }
 
 function render() {
@@ -29,6 +79,8 @@ function render() {
 
   if (state.loading) {
     app.appendChild(renderLoading());
+  } else if (state.loadError) {
+    app.appendChild(renderLoadError());
   } else if (state.acceptPanelTemplate) {
     app.appendChild(renderAcceptPanel(state.acceptPanelTemplate));
   } else if (currentTemplate()) {
@@ -64,21 +116,33 @@ function renderHeader() {
 function renderLoading() {
   const el = document.createElement('div');
   el.className = 'loading-state';
-  el.textContent = 'Loading templates…';
+  el.textContent = 'Loading templates from v0.dev…';
+  return el;
+}
+
+function renderLoadError() {
+  const el = document.createElement('div');
+  el.className = 'empty-state';
+  el.innerHTML = `<h2>Couldn't reach v0.dev</h2><p>${state.loadError}</p>`;
+  const btn = document.createElement('button');
+  btn.className = 'primary';
+  btn.textContent = 'Retry';
+  btn.onclick = () => {
+    loadInitialDeck();
+  };
+  el.appendChild(btn);
   return el;
 }
 
 function renderEmptyState() {
   const el = document.createElement('div');
   el.className = 'empty-state';
-  el.innerHTML = `<h2>No more templates</h2><p>You've swiped through the whole deck.</p>`;
+  el.innerHTML = `<h2>No more templates</h2><p>You've swiped through everything fetched so far.</p>`;
   const btn = document.createElement('button');
   btn.className = 'primary';
-  btn.textContent = 'Reshuffle';
+  btn.textContent = 'Reshuffle & fetch more';
   btn.onclick = () => {
-    state.deck = shuffledDeck(TEMPLATES);
-    state.index = 0;
-    render();
+    loadInitialDeck();
   };
   el.appendChild(btn);
   return el;
@@ -190,6 +254,7 @@ function finishSwipe(card, direction, tpl) {
       state.acceptPanelTemplate = tpl;
     }
     render();
+    maybeFetchMore();
   }, 220);
 }
 
@@ -403,9 +468,5 @@ window.addEventListener('error', (e) => {
   console.error('Flint runtime error:', e.error || e.message);
 });
 
-state.loading = false;
 render();
-
-if (state.history.length === 0 && state.links.length === 0) {
-  state.linksSheetOpen = false;
-}
+loadInitialDeck();
