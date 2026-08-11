@@ -321,9 +321,11 @@ function renderAcceptPanel(tpl) {
     v0Link.target = '_blank';
     v0Link.rel = 'noopener noreferrer';
     v0Link.textContent = 'View on v0.dev';
-    v0Link.style.cssText = 'color:#7dd3fc;font-size:13px;margin-bottom:20px;display:inline-block;';
+    v0Link.style.cssText = 'color:#7dd3fc;font-size:13px;margin-bottom:12px;display:inline-block;';
     panel.appendChild(v0Link);
   }
+
+  panel.appendChild(renderDownloadCommand(tpl));
 
   const linksTitle = document.createElement('h3');
   linksTitle.textContent = 'Your links';
@@ -380,6 +382,45 @@ function renderAcceptPanel(tpl) {
   }
 
   return panel;
+}
+
+function renderDownloadCommand(tpl) {
+  const wrap = document.createElement('div');
+  wrap.className = 'download-cmd';
+  wrap.style.cssText = 'width:100%;max-width:380px;margin-bottom:20px;';
+
+  const label = document.createElement('div');
+  label.textContent = 'Get the code';
+  label.style.cssText = 'color:var(--muted);font-size:12px;margin-bottom:6px;';
+  wrap.appendChild(label);
+
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;background:#0f1115;border:1px solid #333;border-radius:10px;padding:10px 12px;';
+
+  const cmd = `npx v0@latest add ${tpl.id}`;
+  const code = document.createElement('code');
+  code.textContent = cmd;
+  code.style.cssText = 'flex:1;color:#7dd3fc;font-size:13px;white-space:nowrap;overflow-x:auto;';
+  row.appendChild(code);
+
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'ghost';
+  copyBtn.textContent = 'Copy';
+  copyBtn.style.cssText = 'padding:6px 12px;font-size:12px;flex-shrink:0;';
+  copyBtn.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(cmd);
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+    } catch {
+      copyBtn.textContent = 'Failed';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+    }
+  };
+  row.appendChild(copyBtn);
+
+  wrap.appendChild(row);
+  return wrap;
 }
 
 function renderLinksSheet() {
