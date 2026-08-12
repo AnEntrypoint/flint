@@ -236,10 +236,6 @@ function attachSwipeHandlers(card, tpl) {
   card.tabIndex = 0;
   card.setAttribute('role', 'group');
   card.setAttribute('aria-label', `${tpl.name} template card. Press left arrow to reject, right arrow to accept.`);
-  card.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowRight') { e.preventDefault(); finishSwipe(card, 'right', tpl); }
-    if (e.key === 'ArrowLeft') { e.preventDefault(); finishSwipe(card, 'left', tpl); }
-  });
 }
 
 function finishSwipe(card, direction, tpl) {
@@ -512,6 +508,15 @@ function renderLinksSheet() {
   backdrop.appendChild(sheet);
   return backdrop;
 }
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  if (state.linksSheetOpen || state.acceptPanelTemplate || state.loading || state.loadError) return;
+  const card = document.querySelector('.card-top');
+  if (!card) return;
+  e.preventDefault();
+  finishSwipe(card, e.key === 'ArrowRight' ? 'right' : 'left', currentTemplate());
+});
 
 window.addEventListener('error', (e) => {
   console.error('Flint runtime error:', e.error || e.message);
